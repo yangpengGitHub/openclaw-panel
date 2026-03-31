@@ -1045,7 +1045,9 @@ function renderMessagesDebounced() {
 // Tauri WebView on Windows doesn't handle <a download> properly.
 // Use fetch + blob to trigger downloads programmatically.
 function downloadFile(url, filename) {
-  // Add loading indicator
+  // Tauri WebView needs absolute URL for fetch
+  if (url.startsWith('/')) url = location.origin + url;
+
   var btn = event && event.currentTarget;
   if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
 
