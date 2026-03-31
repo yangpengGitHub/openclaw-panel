@@ -128,6 +128,7 @@ let wsReconnectTimer = null;
 let attachments = [];
 const unreadCounts = {};  // per-instance unread counts
 const agentUnreadCounts = {}; // per-agent unread counts
+const unreadSessions = new Set(); // Set<"instanceId/sessionKey"> — sessions with unread agent replies
 const filters = { thinking: true, tools: true }; // true = shown (pressed), matching native UI default
 let _renderedMsgCount = 0; // track incremental render state
 let _renderDebounceTimer = null; // debounce full re-renders
@@ -358,7 +359,7 @@ function handlePanelMessage(msg) {
             }
             if (isDup) {
               if (msg.instanceId===activeInstanceId&&msg.sessionKey===activeSessionKey) { renderMessagesDebounced(); }
-              else markUnread(msg.instanceId);
+              else { markUnread(msg.instanceId); if (msg.message.role!=='user') { unreadSessions.add(msg.instanceId+'/'+msg.sessionKey); renderAgents(); } }
               break;
             }
           }
@@ -368,7 +369,7 @@ function handlePanelMessage(msg) {
           else if (Array.isArray(raw)){var tp=raw.find(function(p){return p.type==='text'});sess.lastPreview=tp?tp.text.substring(0,80):'['+((raw[0]&&raw[0].type)||'...')+']';}
           sess.lastActivity = msg.message.ts||Date.now();
           if (msg.instanceId===activeInstanceId&&msg.sessionKey===activeSessionKey){renderMessagesAppend();}
-          else markUnread(msg.instanceId);
+          else { markUnread(msg.instanceId); if (msg.message.role!=='user') { unreadSessions.add(msg.instanceId+'/'+msg.sessionKey); renderAgents(); } }
           renderSessions();
         }
       }
@@ -396,12 +397,12 @@ function handlePanelMessage(msg) {
         var _isOther = (msg.instanceId !== activeInstanceId || msg.sessionKey !== activeSessionKey);
         if (msg.status==='error') {
           sendNotification('❌ ' + _sessName, '任务出错', {sessionKey: msg.sessionKey, instanceId: msg.instanceId});
-          if (_isOther) toast(_instName + ' · ' + _sessName + ' 出错了', 'error');
+          if (_isOther) { toast(_instName + ' · ' + _sessName + ' 出错了', 'error'); unreadSessions.add(msg.instanceId+'/'+msg.sessionKey); markUnread(msg.instanceId); renderAgents(); renderSessions(); }
         } else {
           sendNotification('✅ ' + _sessName, _instName + ' · 回复完成', {sessionKey: msg.sessionKey, instanceId: msg.instanceId});
-          if (_isOther) toast(_instName + ' · ' + _sessName + ' 回复完成', 'success');
+          if (_isOther) { toast(_instName + ' · ' + _sessName + ' 回复完成', 'success'); unreadSessions.add(msg.instanceId+'/'+msg.sessionKey); markUnread(msg.instanceId); renderAgents(); renderSessions(); }
+          if (_isOther) { toast(_instName + ' · ' + _sessName + ' 回复完成', 'success'); unreadSessions.add(msg.instanceId+'/'+msg.sessionKey); markUnread(msg.instanceId); renderAgents(); renderSessions(); }
         }
-        markUnread(msg.instanceId);
       }
       // Only update DOM for the active session
       if (msg.instanceId !== activeInstanceId || msg.sessionKey !== activeSessionKey) break;
@@ -1042,37 +1043,35 @@ function renderMessagesDebounced() {
 }
 
 // ===== File Download (Tauri-compatible) =====
-// Tauri WebView on Windows doesn't handle <a download> properly.
-// Use fetch + blob to trigger downloads programmatically.
+// Tauri WebView doesn't support fetch+blob downloads reliably.
+// Use Tauri shell.open to launch the system browser for native downloads.
 function downloadFile(url, filename) {
-  // Tauri WebView needs absolute URL for fetch
   if (url.startsWith('/')) url = location.origin + url;
+  console.log('[Download]', url);
 
   var btn = event && event.currentTarget;
   if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
 
-  fetch(url)
-    .then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.blob();
-    })
-    .then(function(blob) {
-      var blobUrl = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename || 'download';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 5000);
-    })
-    .catch(function(err) {
-      console.error('Download failed:', err);
-      alert('下载失败: ' + err.message);
-    })
-    .finally(function() {
-      if (btn) { btn.style.opacity = ''; btn.style.pointerEvents = ''; }
-    });
+  var opened = false;
+  // Tauri v2: __TAURI_PLUGIN_SHELL__.open(url)
+  // Tauri v1: __TAURI__.shell.open(url)
+  // Browser: window.open(url, '_blank')
+  if (typeof window.__TAURI_PLUGIN_SHELL__ !== 'undefined' && window.__TAURI_PLUGIN_SHELL__.open) {
+    console.log('[Download] using __TAURI_PLUGIN_SHELL__.open');
+    window.__TAURI_PLUGIN_SHELL__.open(url);
+    opened = true;
+  }
+  if (!opened && typeof window.__TAURI__ !== 'undefined' && window.__TAURI__.shell && window.__TAURI__.shell.open) {
+    console.log('[Download] using __TAURI__.shell.open');
+    window.__TAURI__.shell.open(url);
+    opened = true;
+  }
+  if (!opened) {
+    console.log('[Download] using window.open fallback');
+    window.open(url, '_blank');
+  }
+
+  if (btn) { setTimeout(function() { btn.style.opacity = ''; btn.style.pointerEvents = ''; }, 500); }
 }
 
 // ===== File Panel =====
