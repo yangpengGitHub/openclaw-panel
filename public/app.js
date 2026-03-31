@@ -1036,6 +1036,38 @@ function renderMessagesDebounced() {
   _renderDebounceTimer = setTimeout(function(){ _renderDebounceTimer=null; renderMessages(); scrollToBottom(); updateModelBadge(); }, 80);
 }
 
+// ===== File Download (Tauri-compatible) =====
+// Tauri WebView on Windows doesn't handle <a download> properly.
+// Use fetch + blob to trigger downloads programmatically.
+function downloadFile(url, filename) {
+  // Add loading indicator
+  var btn = event && event.currentTarget;
+  if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
+
+  fetch(url)
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.blob();
+    })
+    .then(function(blob) {
+      var blobUrl = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 5000);
+    })
+    .catch(function(err) {
+      console.error('Download failed:', err);
+      alert('下载失败: ' + err.message);
+    })
+    .finally(function() {
+      if (btn) { btn.style.opacity = ''; btn.style.pointerEvents = ''; }
+    });
+}
+
 // ===== File Panel =====
 function getFileIcon(ext) {
   var icons = {
@@ -1104,11 +1136,11 @@ function updateFilePanel() {
   var html = '';
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
-    html += '<a class="file-chip" href="' + f.url + '" download="' + esc(f.name) + '" title="' + esc(f.path) + '">';
+    html += '<span class="file-chip" onclick="downloadFile(\'' + f.url + '\',\'' + esc(f.name) + '\')" title="' + esc(f.path) + '">';
     html += '<span class="file-icon">' + f.icon + '</span>';
     html += '<span class="file-name">' + esc(f.name) + '</span>';
     html += '<span class="file-dl">📥</span>';
-    html += '</a>';
+    html += '</span>';
   }
   list.innerHTML = html;
   // Default collapsed
@@ -1172,7 +1204,7 @@ function renderTextContent(text) {
     if (!/\.\w{1,10}$/.test(trimmed)) return match;
     var downloadUrl = '/api/download?path=' + encodeURIComponent(trimmed);
     var fileName = trimmed.split('/').pop();
-    return match + ' <a href="' + downloadUrl + '" class="file-download-btn" download="' + esc(fileName) + '" title="下载文件 ' + esc(fileName) + '">📥</a>';
+    return match + ' <span class="file-download-btn" onclick="downloadFile(\'' + downloadUrl + '\',\'' + esc(fileName) + '\')" title="下载文件 ' + esc(fileName) + '">📥</span>';
   });
   // Code blocks (```\lang\n...\n```)
   s = s.replace(/```(\w*)\n([\s\S]*?)```/g, function(m, lang, code) {

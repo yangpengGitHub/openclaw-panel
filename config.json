@@ -27,7 +27,7 @@
   "agents": [
     {
       "id": "main",
-      "name": "Main",
+      "name": "大总管",
       "emoji": "🧠",
       "color": "#6366f1"
     },
