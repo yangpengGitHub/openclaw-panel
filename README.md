@@ -1,16 +1,17 @@
 # OpenClaw Panel
 
-多实例 OpenClaw Gateway 管理面板，支持 WebSocket 实时通信、会话管理、消息收发。
+多 Agent 多实例管理面板，支持 WebSocket 实时通信、会话管理、消息收发。
 
 ## 功能特性
 
-- 🖥️ **多实例管理** — 同时连接多个 Gateway 实例
+- 🤖 **多 Agent 管理** — 同时管理多个 Agent 实例，自由切换
 - 💬 **实时聊天** — WebSocket 双向通信，消息实时同步
 - 📎 **附件上传** — 支持拖拽上传图片/文件，图片在线预览
 - 🔍 **消息搜索** — 聊天区内搜索过滤
 - ⌨️ **命令补全** — 输入 `/` 弹出命令菜单
 - 🎨 **Markdown 工具栏** — 粗体、斜体、代码块一键插入
 - 🖼️ **图片灯箱** — 点击放大查看
+- ✅ **审批弹窗** — exec elevated 命令在线审批
 - 📱 **移动端适配** — 响应式布局
 - 🐳 **Docker 部署** — 一键启动
 
@@ -57,12 +58,12 @@ npx tauri dev             # 启动桌面开发模式
 
 ## 配置
 
-首次打开面板时，点击 `+` 添加 Gateway 实例：
+首次打开面板时，点击 `+` 添加 Agent 实例：
 
 | 字段 | 说明 |
 |------|------|
-| 名称 | 实例显示名称 |
-| WebSocket 地址 | Gateway WS 地址，如 `ws://localhost:18789` |
+| 名称 | Agent 显示名称 |
+| WebSocket 地址 | Agent Gateway WS 地址，如 `ws://localhost:18789` |
 | Token | Gateway 认证 token（如有） |
 | 描述 | 可选，简短说明 |
 
@@ -94,7 +95,7 @@ npx tauri dev             # 启动桌面开发模式
 openclaw-panel/
 ├── server.js              # 主服务
 ├── lib/
-│   └── gateway.js         # Gateway WebSocket 连接
+│   └── gateway.js         # Agent Gateway WebSocket 连接
 ├── public/
 │   ├── index.html         # 前端页面
 │   ├── app.js             # 前端逻辑
