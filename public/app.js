@@ -579,7 +579,12 @@ function selectSession(instanceId, sessionKey) {
   if (panel && panel.classList.contains('open')) { panel.classList.remove('open'); if (overlay) overlay.classList.remove('show'); }
 }
 
-function refreshSessions() { if (activeInstanceId) send('refresh-sessions',{instanceId:activeInstanceId}); }
+function refreshSessions() {
+  if (!activeInstanceId) { console.warn('[Panel] refreshSessions: no activeInstanceId'); return; }
+  console.log('[Panel] refreshSessions: instanceId=' + activeInstanceId);
+  send('refresh-sessions', {instanceId: activeInstanceId});
+  toast('正在刷新...', 'info', 1500);
+}
 
 // ===== Send Message =====
 function sendMessage() {
